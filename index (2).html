@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Quest Watersports · Tools</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#14293E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Loaded without blocking the page: a stylesheet from another origin holds up
+     first paint until it answers, and when Google cannot be reached it sits for
+     about twelve seconds before giving up. The page paints immediately in the
+     fallback stack and takes the webfont whenever it turns up. -->
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap"
+      rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet"></noscript>
+<style>
+  :root {
+    --navy: #14293E;
+    --navy-deep: #0c1b2a;
+    --ice: #ebf1f6;
+    --frost: #4a81a6;
+    --gold: #c08a22;
+    --ink: #1d2b38;
+    --muted: #5c7185;
+    --line: #c7d5e0;
+    --disp: 'Barlow Condensed', 'Arial Narrow', Impact, sans-serif;
+    --body: 'Source Sans 3', 'Segoe UI', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--ice); color: var(--ink); font-family: var(--body); }
+
+  header { background: var(--navy); border-bottom: 3px solid var(--gold); }
+  .bar { max-width: 980px; margin: 0 auto; padding: 20px 22px; display: flex; align-items: center; gap: 14px; }
+  .mark { width: 42px; height: 42px; flex: none; border-radius: 9px; background: #fff; display: flex; align-items: center; justify-content: center; }
+  .mark svg { width: 26px; height: 26px; }
+  .name { font-family: var(--disp); color: #fff; text-transform: uppercase; letter-spacing: .04em; font-size: 27px; font-weight: 700; line-height: 1; }
+  .where { color: #9fc3dc; font-size: 12.5px; letter-spacing: .09em; text-transform: uppercase; margin-top: 3px; }
+
+  main { max-width: 980px; margin: 0 auto; padding: 34px 22px 60px; }
+  h1 { font-family: var(--disp); text-transform: uppercase; letter-spacing: .02em; font-size: 40px; color: var(--navy); margin: 0 0 6px; }
+  .lead { color: var(--muted); font-size: 16.5px; max-width: 46em; margin: 0 0 28px; line-height: 1.55; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px; }
+  .card {
+    display: flex; flex-direction: column; gap: 9px;
+    background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    padding: 20px 22px 18px; text-decoration: none; color: inherit;
+    transition: border-color .12s, box-shadow .12s, transform .12s;
+  }
+  .card:hover { border-color: var(--frost); box-shadow: 0 4px 18px rgba(20,41,62,.12); transform: translateY(-2px); }
+  .card:focus-visible { outline: 3px solid var(--frost); outline-offset: 2px; }
+  .card h2 { font-family: var(--disp); text-transform: uppercase; letter-spacing: .03em; font-size: 25px; color: var(--navy); margin: 0; line-height: 1.1; }
+  .who { align-self: flex-start; font-size: 11.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--frost); background: var(--ice); border-radius: 999px; padding: 4px 10px; }
+  .card p { margin: 0; color: var(--muted); font-size: 14.5px; line-height: 1.5; flex: 1; }
+  .go { color: var(--navy); font-weight: 700; font-size: 14.5px; margin-top: 2px; }
+  .card:hover .go { color: var(--gold); }
+
+  footer { max-width: 980px; margin: 0 auto; padding: 0 22px 40px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#14293E" stroke-width="2.4" stroke-linecap="round">
+        <circle cx="10.5" cy="10.5" r="6.5"></circle><line x1="15.5" y1="15.5" x2="21" y2="21"></line>
+      </svg>
+    </div>
+    <div>
+      <div class="name">Quest Watersports</div>
+      <div class="where">Ottawa, IL</div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <h1>Shop tools</h1>
+  <p class="lead">Internal apps for Quest Watersports. Not for customers — everything behind these
+    doors is the shop's own working record.</p>
+
+  <div class="cards">
+
+    <!-- ADD A PROJECT: copy one whole <a class="card"> block, change the four
+         things inside it — href, h2, the "who" pill and the paragraph — and
+         that is the entire job. The grid reflows on its own; there is no
+         build step and no JavaScript to keep in step. -->
+
+    <a class="card" href="https://questws.github.io/servicetracker/">
+      <h2>Service Tracker</h2>
+      <span class="who">Shop floor &amp; service desk</span>
+      <p>Work orders, the shop log, hours and parts, props out for repair, and the
+        service writer's close-out. Mechanics scan the work order; the office writes it up.</p>
+      <span class="go">Open &rarr;</span>
+    </a>
+
+    <a class="card" href="https://questws.github.io/winter-quotes_26-27/">
+      <h2>Winter Services</h2>
+      <span class="who">Office</span>
+      <p>Winter storage and service quotes for the 26&ndash;27 season.</p>
+      <span class="go">Open &rarr;</span>
+    </a>
+
+  </div>
+</main>
+
+<footer>Quest Watersports · 815-433-2200 · service@questwatersports.com</footer>
+
+</body>
+</html>
