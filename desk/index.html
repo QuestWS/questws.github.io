@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Service Desk · Quest Watersports</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#14293E">
+<link rel="icon" type="image/png" href="/winter-quotes_26-27/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap"
+      rel="stylesheet" media="print" onload="this.media='all'">
+<!--
+  THE SERVICE DESK — one search box over both consoles.
+  ---------------------------------------------------------------------------
+  Chris, Oct 2026: "when a customer calls and gives me their name I have to
+  look in both service tracker and in winter services." This page asks both
+  at once and puts what comes back side by side, grouped by person.
+
+  What decides each piece:
+
+  - IT ONLY SEARCHES AND LINKS. Opening a result opens that record in its own
+    console (winter: /winter-quotes_26-27/admin/?q=QW-…, service:
+    /servicetracker/admin/?job=…), where all the work is done exactly as
+    before. Nothing here writes, so none of the two consoles' safeguards —
+    request ids, the payment lock, re-pricing — has a second copy to drift.
+  - EACH SIDE KEEPS ITS OWN SIGN-IN. The winter half needs a staff PIN and is
+    held to that person's permissions; the service half needs the portal
+    password. The three pages share an origin (questws.github.io), so signing
+    in here signs in there and the other way round: same localStorage keys
+    (qwtok/qwme for winter, qst_token via the tracker's own api.js).
+  - NO BACKEND IS GLUED TO THE OTHER. The browser asks both, in parallel. A
+    server-to-server search would have let the service password read winter
+    customers without a PIN, and made every search two cold starts in a row.
+  - THE SERVICE TRACKER'S URL AND TRANSPORT ARE IMPORTED, not copied: its
+    rule is that its /exec URL lives in assets/lib/config.js and nowhere else.
+    The winter URL is written below; it is one of the places listed in that
+    repo's CLAUDE.md that must change together.
+  - PEOPLE ARE GROUPED by a shared phone number (last ten digits) or email,
+    or failing both, the same name. Nothing is merged on the server: a group
+    is only how this page draws the answer.
+-->
+<style>
+  :root {
+    --navy: #14293E; --navy-deep: #0c1b2a; --ice: #ebf1f6; --frost: #4a81a6;
+    --gold: #c08a22; --ink: #1d2b38; --muted: #5c7185; --line: #c7d5e0;
+    --card: #fff; --green: #2e7d4f; --red: #b3261e;
+    --disp: 'Barlow Condensed', 'Arial Narrow', Impact, sans-serif;
+    --body: 'Source Sans 3', 'Segoe UI', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--ice); color: var(--ink); font-family: var(--body); font-size: 16px; }
+  a { color: var(--frost); }
+  header { background: var(--navy); border-bottom: 3px solid var(--gold); }
+  .bar { max-width: 980px; margin: 0 auto; padding: 14px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .name { font-family: var(--disp); color: #fff; text-transform: uppercase; letter-spacing: .04em; font-size: 24px; font-weight: 700; line-height: 1; }
+  .where { color: #9fc3dc; font-size: 12px; letter-spacing: .09em; text-transform: uppercase; margin-top: 3px; }
+  .home { margin-left: auto; color: #cfe0ec; font-size: 14px; text-decoration: none; }
+  .home:hover { color: #fff; }
+  main { max-width: 980px; margin: 0 auto; padding: 18px 16px 60px; }
+
+  .who { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .side { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font-size: 14.5px; }
+  .side b { font-family: var(--disp); text-transform: uppercase; letter-spacing: .04em; color: var(--navy); font-size: 17px; }
+  .side .state { color: var(--muted); }
+  .side .ok { color: var(--green); font-weight: 600; }
+  .side form { display: flex; gap: 8px; margin-top: 8px; }
+  .side input { flex: 1; min-width: 0; }
+  .linkbtn { background: none; border: 0; padding: 0; color: var(--frost); font: inherit; cursor: pointer; text-decoration: underline; }
+
+  input.txt { font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--ink); }
+  input.txt:focus { outline: 3px solid rgba(74,129,166,.35); border-color: var(--frost); }
+  button.btn { font: inherit; font-weight: 700; padding: 10px 16px; border-radius: 9px; border: 0; background: var(--navy); color: #fff; cursor: pointer; }
+  button.btn:disabled { opacity: .6; cursor: default; }
+
+  #searchform { display: flex; gap: 8px; }
+  #q { flex: 1; min-width: 0; font-size: 19px; padding: 13px 14px; }
+  .hint { color: var(--muted); font-size: 13.5px; margin: 6px 2px 16px; }
+  .msg { margin: 10px 2px; color: var(--muted); }
+  .msg.err { color: var(--red); }
+
+  .person { background: var(--card); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 14px; overflow: hidden; }
+  .phead { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; }
+  .phead h2 { margin: 0; font-family: var(--disp); text-transform: uppercase; letter-spacing: .03em; color: var(--navy); font-size: 24px; line-height: 1.1; }
+  .phead .contact { color: var(--muted); font-size: 14.5px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .phead .contact a { color: var(--ink); text-decoration: none; }
+  .phead .contact a:hover { text-decoration: underline; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 680px) { .cols { grid-template-columns: 1fr; } .cols .col + .col { border-left: 0; border-top: 1px solid var(--line); } }
+  .col { padding: 10px 16px 12px; min-width: 0; }
+  .col + .col { border-left: 1px solid var(--line); }
+  .col h3 { margin: 2px 0 6px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--frost); }
+  .none { color: var(--muted); font-size: 14px; }
+  .rec { display: block; text-decoration: none; color: inherit; padding: 8px 10px; margin: 0 -10px; border-radius: 9px; }
+  .rec:hover, .rec:focus-visible { background: var(--ice); outline: none; }
+  .rec .top { display: flex; justify-content: space-between; gap: 10px; font-weight: 700; }
+  .rec .top .num { color: var(--navy); }
+  .rec .sub { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--ice); color: var(--navy); white-space: nowrap; }
+  .pill.gold { background: #f6ead2; color: #7a5410; }
+  .pill.green { background: #dcefe3; color: var(--green); }
+  .pill.grey { background: #eceff2; color: var(--muted); }
+  .owe { font-weight: 700; white-space: nowrap; }
+  .owe.credit { color: var(--green); }
+  .locked { color: var(--muted); font-size: 14px; font-style: italic; }
+  footer { color: var(--muted); font-size: 13px; margin-top: 26px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div>
+      <div class="name">Service Desk</div>
+      <div class="where">Winter services + service tracker</div>
+    </div>
+    <a class="home" href="/">All tools</a>
+  </div>
+</header>
+
+<main>
+  <div class="who">
+    <div class="side" id="wSide"></div>
+    <div class="side" id="sSide"></div>
+  </div>
+
+  <form id="searchform" autocomplete="off">
+    <input class="txt" id="q" type="search" enterkeyhint="search" autofocus
+           placeholder="Name, phone, email, boat, quote # or invoice #">
+    <button class="btn" id="go" type="submit">Search</button>
+  </form>
+  <div class="hint">Any part, any order — <i>john white</i>, <i>white</i>, <i>815-433</i>, <i>sea ray</i>, <i>QW-26-1255</i>, <i>01-8891</i>.</div>
+
+  <div id="msg" class="msg" role="status" aria-live="polite"></div>
+  <div id="results"></div>
+
+  <footer>
+    Opening a result takes you to that record in its own console, signed in. Back returns here with your search still on screen.
+    <br><a href="/winter-quotes_26-27/admin/">Winter services console</a> · <a href="/servicetracker/admin/">Service tracker portal</a>
+  </footer>
+</main>
+
+<script type="module">
+import { api as trackerApi, storedToken, storeSession, tokenExpiry, clearSession } from '/servicetracker/assets/lib/api.js';
+import { matchesSearch, phoneKey } from '/servicetracker/assets/lib/search.js';
+
+/* The winter services /exec URL. One of the places listed in
+   winter-quotes_26-27/CLAUDE.md §1 that must change together. */
+const WINTER_URL = 'https://script.google.com/macros/s/AKfycbxv8kqGKXU_4-9TytfWzdrv-QqqmyrYLxRwd8FDfA8b47sX3NlEBNDlIwIHRuQObZbL9w/exec';
+const WINTER_CONSOLE = '/winter-quotes_26-27/admin/';
+const TRACKER_PORTAL = '/servicetracker/admin/';
+const LAST_KEY = 'desk_last';
+
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+const money = (n) => (n == null || n === '' || !isFinite(Number(n))) ? ''
+  : '$' + Math.abs(Number(n)).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+/* ------------------------------------------------------------ sign-ins --- */
+
+function winterToken() { try { return localStorage.getItem('qwtok') || ''; } catch { return ''; } }
+function winterMe() { try { return JSON.parse(localStorage.getItem('qwme') || 'null'); } catch { return null; } }
+function winterSignOut() { try { ['qwtok', 'qwme', 'qwready'].forEach((k) => localStorage.removeItem(k)); } catch { /* blocked */ } }
+function trackerSignedIn() { const t = storedToken(); return !!t && tokenExpiry(t) > Date.now(); }
+
+function drawSides() {
+  const me = winterMe();
+  $('wSide').innerHTML = winterToken() && me
+    ? `<b>Winter services</b> · <span class="ok">signed in as ${esc(me.name)}</span>
+       · <button class="linkbtn" id="wOut" type="button">sign out</button>`
+    : `<b>Winter services</b> · <span class="state">not signed in</span>
+       <form id="wForm"><input class="txt" id="wPin" type="password" inputmode="numeric" placeholder="Your staff PIN" autocomplete="off">
+       <button class="btn" type="submit">Sign in</button></form><div class="msg" id="wMsg"></div>`;
+  $('sSide').innerHTML = trackerSignedIn()
+    ? `<b>Service tracker</b> · <span class="ok">signed in</span>
+       · <button class="linkbtn" id="sOut" type="button">sign out</button>`
+    : `<b>Service tracker</b> · <span class="state">not signed in</span>
+       <form id="sForm"><input class="txt" id="sPw" type="password" placeholder="Portal password" autocomplete="current-password">
+       <button class="btn" type="submit">Sign in</button></form><div class="msg" id="sMsg"></div>`;
+
+  if ($('wOut')) $('wOut').onclick = () => { winterSignOut(); drawSides(); };
+  if ($('sOut')) $('sOut').onclick = () => { clearSession(); drawSides(); };
+  if ($('wForm')) $('wForm').onsubmit = async (e) => {
+    e.preventDefault();
+    $('wMsg').textContent = 'Checking…'; $('wMsg').className = 'msg';
+    try {
+      const r = await winterCall('auth', [$('wPin').value]);
+      if (!r.ok) throw new Error(r.error || 'Could not sign in.');
+      localStorage.setItem('qwtok', r.token);
+      localStorage.setItem('qwme', JSON.stringify(r));
+      drawSides(); rerun();
+    } catch (err) { $('wMsg').textContent = err.message; $('wMsg').className = 'msg err'; }
+  };
+  if ($('sForm')) $('sForm').onsubmit = async (e) => {
+    e.preventDefault();
+    $('sMsg').textContent = 'Checking…'; $('sMsg').className = 'msg';
+    try {
+      const r = await trackerApi('adminSignIn', [$('sPw').value]);
+      storeSession(r.token, { role: 'admin' }, true);
+      drawSides(); rerun();
+    } catch (err) { $('sMsg').textContent = err.message; $('sMsg').className = 'msg err'; }
+  };
+}
+
+/* ------------------------------------------------------------- backends --- */
+
+/* A read on the winter console API: POST first, then GET when the POST is
+   lost — the same two roads the console takes for a read. A lost POST lands
+   on the customer quote-loader, which does not stamp _api, so the stamp is
+   what proves an answer is real. */
+async function winterCall(fn, args) {
+  const body = { api: 'console', fn, token: winterToken(), args };
+  const read = async (res) => { if (!res.ok) throw new Error('bad status'); return res.json(); };
+  try {
+    const j = await read(await fetch(WINTER_URL, { method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) }));
+    if (j && j._api === 'console') return j;
+  } catch { /* try the other road */ }
+  const u = WINTER_URL + '?api=console&fn=' + encodeURIComponent(fn) + '&token=' + encodeURIComponent(body.token)
+    + '&args=' + encodeURIComponent(JSON.stringify(args)) + '&t=' + Date.now();
+  let j;
+  try { j = await read(await fetch(u)); } catch { throw new Error('Could not reach the winter services server.'); }
+  if (!j || j._api !== 'console') throw new Error('The winter services server did not answer properly — try again.');
+  return j;
+}
+
+async function searchWinter(q) {
+  if (!winterToken()) return { locked: 'Sign in above with your staff PIN to include winter quotes.' };
+  const r = await winterCall('search', [q]);
+  if (!r.ok) {
+    if (/expired|sign in|log in/i.test(String(r.error))) {
+      winterSignOut(); drawSides();
+      return { locked: 'Your winter services sign-in ran out. Sign in again above.' };
+    }
+    throw new Error(r.error || 'Winter search failed.');
+  }
+  return { hits: r.hits || [], truncated: !!r.truncated };
+}
+
+async function searchTracker(q) {
+  if (!trackerSignedIn()) return { locked: 'Sign in above with the portal password to include service jobs.' };
+  try {
+    // The whole list, filtered here — what the portal itself does. The server
+    // keeps that one answer cached for every search, where a search sent to
+    // it would be a fresh sheet read per query.
+    const r = await trackerApi('listJobs', [{ status: 'every' }]);
+    const jobs = (r.jobs || []).filter((j) => matchesSearch(
+      [j.id, j.customerName, j.customerEmail, j.boatInfo, j.customerPhone], q, j.customerPhone));
+    return { hits: jobs.slice(0, 40), truncated: jobs.length > 40 };
+  } catch (err) {
+    if (/^Sign in/.test(err.message)) { drawSides(); return { locked: 'Your service tracker sign-in ran out. Sign in again above.' }; }
+    throw err;
+  }
+}
+
+/* ------------------------------------------------------------- grouping --- */
+
+const normName = (s) => String(s || '').toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/).filter(Boolean).sort().join(' ');
+const normEmail = (s) => String(s || '').trim().toLowerCase();
+
+/* Join every record that shares a phone, an email or (when it has neither in
+   common with anybody) a name. Union-find, so A~B by phone and B~C by email
+   puts all three on one card. */
+function group(winter, tracker) {
+  const recs = [];
+  winter.forEach((h) => recs.push({ side: 'w', h, name: h.name, phone: h.phone, email: h.email }));
+  tracker.forEach((h) => recs.push({ side: 's', h, name: h.customerName, phone: h.customerPhone, email: h.customerEmail }));
+  const parent = recs.map((_, i) => i);
+  const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  const seen = {};
+  recs.forEach((r, i) => {
+    [['p', phoneKey(r.phone)], ['e', normEmail(r.email)], ['n', normName(r.name)]].forEach(([k, v]) => {
+      if (!v) return;
+      const key = k + ':' + v;
+      if (key in seen) parent[find(i)] = find(seen[key]); else seen[key] = i;
+    });
+  });
+  const groups = new Map();
+  recs.forEach((r, i) => {
+    const root = find(i);
+    if (!groups.has(root)) groups.set(root, []);
+    groups.get(root).push(r);
+  });
+  return [...groups.values()].map((list) => {
+    const pick = (f) => (list.find((r) => r[f]) || {})[f] || '';
+    return { name: pick('name') || 'No name on file', phone: pick('phone'), email: pick('email'),
+      w: list.filter((r) => r.side === 'w').map((r) => r.h), s: list.filter((r) => r.side === 's').map((r) => r.h) };
+  }).sort((a, b) => (b.w.length && b.s.length) - (a.w.length && a.s.length) || a.name.localeCompare(b.name));
+}
+
+/* -------------------------------------------------------------- drawing --- */
+
+function fmtPhone(p) {
+  const d = phoneKey(p);
+  return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : String(p || '');
+}
+
+function winterRow(h) {
+  const st = String(h.status || '');
+  const cls = /paid in full|credit/i.test(st) ? 'green' : /signed|payment|deposit/i.test(st) ? 'gold' : '';
+  return `<a class="rec" href="${WINTER_CONSOLE}?q=${encodeURIComponent(h.quoteNo)}">
+    <div class="top"><span class="num">${esc(h.quoteNo)}</span><span class="owe${/CREDIT/.test(h.balance) ? ' credit' : ''}">${esc(h.balance)}</span></div>
+    <div class="sub">${esc([h.unit, h.ymm].filter(Boolean).join(' · '))}${h.tab ? ' · ' + esc(h.tab) : ''}</div>
+    ${st ? `<span class="pill ${cls}">${esc(st)}</span>` : ''}</a>`;
+}
+
+function trackerRow(j) {
+  const bal = Number(j.balance);
+  const owe = j.status === 'done' && isFinite(bal) && Math.abs(bal) > 0.005
+    ? (bal < 0 ? 'CREDIT ' + money(bal) : money(bal) + ' due') : '';
+  const cls = j.archivedAt ? 'grey' : j.status === 'done' ? (j.paidAt ? 'green' : 'gold') : '';
+  const label = (j.archivedAt ? 'Archived · ' : '') + (j.kind === 'parts' ? 'Parts order · ' : '') + (j.statusLabel || j.status || '');
+  return `<a class="rec" href="${TRACKER_PORTAL}?job=${encodeURIComponent(j.id)}">
+    <div class="top"><span class="num">#${esc(j.id)}</span><span class="owe${bal < 0 ? ' credit' : ''}">${esc(owe)}</span></div>
+    <div class="sub">${esc(j.boatInfo || (j.kind === 'parts' ? j.workRequested : '') || '')}</div>
+    <span class="pill ${cls}">${esc(label)}</span>
+    ${j.paidAt && j.status === 'done' ? '<span class="pill green">Paid</span>' : ''}</a>`;
+}
+
+function draw(state) {
+  const { q, w, s } = state;
+  const msgs = [];
+  if (w.error) msgs.push('Winter services: ' + w.error);
+  if (s.error) msgs.push('Service tracker: ' + s.error);
+  const groups = group(w.hits || [], s.hits || []);
+  const counts = `${(w.hits || []).length} winter quote${(w.hits || []).length === 1 ? '' : 's'}, `
+    + `${(s.hits || []).length} service job${(s.hits || []).length === 1 ? '' : 's'}`;
+  $('msg').className = msgs.length ? 'msg err' : 'msg';
+  $('msg').innerHTML = w.locked && s.locked ? 'Sign in above — to either side, or both — to search.'
+    : msgs.length ? msgs.map(esc).join('<br>')
+    : groups.length ? `“${esc(q)}” — ${counts}${w.truncated || s.truncated ? ' (more than shown — narrow the search)' : ''}.`
+    : `Nothing matches “${esc(q)}”${w.locked || s.locked ? ' on the side you are signed in to' : ''}.`;
+
+  const sideBody = (hits, lockedMsg, row) => lockedMsg ? `<div class="locked">${esc(lockedMsg)}</div>`
+    : hits.length ? hits.map(row).join('') : '<div class="none">None</div>';
+  $('results').innerHTML = groups.map((g) => `
+    <section class="person">
+      <div class="phead"><h2>${esc(g.name)}</h2>
+        <div class="contact">
+          ${g.phone ? `<a href="tel:${esc(phoneKey(g.phone) || g.phone)}">${esc(fmtPhone(g.phone))}</a>` : ''}
+          ${g.email ? `<a href="mailto:${esc(g.email)}">${esc(g.email)}</a>` : ''}
+        </div></div>
+      <div class="cols">
+        <div class="col"><h3>Winter services</h3>${sideBody(g.w, w.locked, winterRow)}</div>
+        <div class="col"><h3>Service</h3>${sideBody(g.s, s.locked, trackerRow)}</div>
+      </div>
+    </section>`).join('');
+}
+
+/* -------------------------------------------------------------- search --- */
+
+let asked = 0;
+async function run(q) {
+  q = String(q || '').trim();
+  if (q.length < 2) { $('msg').textContent = 'Type at least 2 letters or digits.'; return; }
+  const mine = ++asked;
+  history.replaceState(null, '', '?q=' + encodeURIComponent(q));
+  $('go').disabled = true;
+  $('msg').className = 'msg';
+  $('msg').textContent = `Searching both systems for “${q}”…`;
+  const settle = (p) => p.then((v) => v, (err) => ({ error: err.message || String(err) }));
+  const [w, s] = await Promise.all([settle(searchWinter(q)), settle(searchTracker(q))]);
+  if (mine !== asked) return;   // a newer search has started; this answer is stale
+  $('go').disabled = false;
+  const state = { q, w, s };
+  try { sessionStorage.setItem(LAST_KEY, JSON.stringify(state)); } catch { /* private mode */ }
+  draw(state);
+}
+function rerun() { const q = $('q').value.trim(); if (q.length >= 2) run(q); }
+
+$('searchform').onsubmit = (e) => { e.preventDefault(); run($('q').value); };
+
+drawSides();
+const startQ = new URLSearchParams(location.search).get('q') || '';
+if (startQ) {
+  $('q').value = startQ;
+  // Coming Back from a record: put the last answer up at once, then refresh it.
+  try {
+    const last = JSON.parse(sessionStorage.getItem(LAST_KEY) || 'null');
+    if (last && last.q === startQ) draw(last);
+  } catch { /* nothing kept */ }
+  run(startQ);
+}
+// Wake both Apps Script containers while the name is being typed.
+winterCall('ping', []).catch(() => {});
+trackerApi('ping', []).catch(() => {});
+</script>
+</body>
+</html>
